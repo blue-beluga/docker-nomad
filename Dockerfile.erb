@@ -1,0 +1,40 @@
+# encoding: UTF-8
+
+FROM <%= ENV.fetch('FROM') %>
+MAINTAINER The Blue Beluga <admin@bluebeluga.io>
+
+LABEL vendor="The Blue Beluga Company"
+LABEL io.bluebeluga.nomad.description="Alpine Linux Base with Nomad"
+LABEL io.bluebeluga.nomad.version="<%= ENV.fetch('NOMAD_VERSION') %>"
+LABEL io.bluebeluga.nomad.git-revision="<%= ENV.fetch('GIT_REVISION') %>"
+LABEL io.bluebeluga.nomad.release-date="<%= Time.now.strftime('%B %d, %Y %H:%M') %>"
+
+ENV NOMAD_VERSION=<%= ENV.fetch('NOMAD_VERSION') %>
+
+RUN addgroup nomad && \
+    adduser -S -G nomad nomad && \
+    apk-install --no-cache curl ca-certificates gnupg && \
+    gpg --recv-keys 91A6E7F85D05C65630BEF18951852D87348FFC4C && \
+    curl -SLO "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_linux_amd64.zip" && \
+    curl -SLO "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_SHA256SUMS.sig" && \
+    curl -SLO "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_SHA256SUMS" && \
+    gpg --batch --verify "nomad_${NOMAD_VERSION}_SHA256SUMS.sig" "nomad_${NOMAD_VERSION}_SHA256SUMS" && \
+    grep "nomad_${NOMAD_VERSION}_linux_amd64.zip" "nomad_${NOMAD_VERSION}_SHA256SUMS" | sha256sum -c && \
+    unzip -d /bin "nomad_${NOMAD_VERSION}_linux_amd64.zip" && \
+    killall -QUIT gpg-agent && \
+    apk del --purge curl gnupg && \
+    rm -rfv "nomad_${NOMAD_VERSION}_linux_amd64.zip" \
+            SHASUMS256.txt.asc \
+            SHASUMS256.txt \
+            /var/cache/apk/* \
+            /root/.gnupg
+
+
+VOLUME ["/data"]
+VOLUME ["/var/run/docker.sock"]
+ENTRYPOINT ["/usr/local/bin/nomad"]
+
+# Agent
+# CMD ["agent", "-data-dir", "/data"]
+# Server
+# CMD ["agent", "-bind=0.0.0.0", "-data-dir", "/data", "-dev"]
